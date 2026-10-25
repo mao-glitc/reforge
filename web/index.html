@@ -1,0 +1,349 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ReForge — AIが100回作り直したカードゲーム</title>
+<style>
+:root{--bg:#12141a;--panel:#1b1f29;--panel2:#232836;--line:#2f3547;--text:#e8eaf0;--mute:#8d95aa;--acc:#ffb454;--good:#6fd3a0;--bad:#ff6b7a;--blue:#6ab0ff}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.5 system-ui,"Hiragino Sans","Yu Gothic UI",sans-serif}
+header{padding:14px 16px;border-bottom:1px solid var(--line);display:flex;gap:16px;align-items:center;flex-wrap:wrap}
+h1{font-size:18px;margin:0}
+h1 small{color:var(--mute);font-weight:400;font-size:12px;margin-left:8px}
+nav button,.btn{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 14px;cursor:pointer;font:inherit}
+nav button.on{background:var(--acc);color:#1a1200;border-color:var(--acc);font-weight:700}
+.btn:hover{border-color:var(--acc)}
+.btn.prim{background:var(--acc);color:#1a1200;border-color:var(--acc);font-weight:700}
+.btn:disabled{opacity:.4;cursor:default}
+main{max-width:1100px;margin:0 auto;padding:16px}
+.hide{display:none!important}
+.row{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+select{background:var(--panel2);color:var(--text);border:1px solid var(--line);border-radius:8px;padding:6px 8px;font:inherit}
+/* game */
+.table{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px;margin-top:12px}
+.hero{display:flex;justify-content:space-between;align-items:center;padding:6px 10px;background:var(--panel2);border-radius:10px;cursor:default}
+.hero.target{outline:2px solid var(--bad);cursor:pointer}
+.hero b{font-size:18px}
+.hp{color:var(--bad)}.en{color:var(--blue)}
+.lane{min-height:104px;display:flex;gap:8px;padding:10px 4px;flex-wrap:wrap}
+.hand{display:flex;gap:8px;flex-wrap:wrap;padding:6px 0}
+.card{width:112px;min-height:92px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:6px 8px;position:relative;user-select:none}
+.card.unit{border-top:3px solid var(--good)}.card.spell{border-top:3px solid var(--blue)}
+.card .nm{font-weight:700;font-size:12px;padding-right:22px;line-height:1.25}
+.card .ds{color:var(--mute);font-size:12px;margin-top:4px}
+.card .co{position:absolute;right:6px;top:5px;background:var(--blue);color:#06101e;border-radius:50%;width:20px;height:20px;text-align:center;font-weight:800;font-size:12px;line-height:20px}
+.card.playable{cursor:pointer;box-shadow:0 0 0 1px var(--acc)}
+.card.playable:hover{transform:translateY(-3px)}
+.card.sel{outline:2px solid var(--acc)}
+.card.target{outline:2px solid var(--bad);cursor:pointer}
+.card.ready{box-shadow:0 0 0 2px var(--good);cursor:pointer}
+.card .st{font-size:15px;font-weight:800;margin-top:4px}
+.card .st i{font-style:normal;color:var(--acc)}
+.card .st em{font-style:normal;color:var(--bad)}
+.tag{display:inline-block;font-size:10px;background:#3a4056;border-radius:4px;padding:0 4px;margin-right:2px}
+#log{height:120px;overflow:auto;background:#0e1016;border-radius:8px;padding:8px;font-size:12px;color:var(--mute);margin-top:10px}
+#log div.me{color:var(--text)}
+.over{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9}
+.over>div{background:var(--panel);border:1px solid var(--acc);border-radius:14px;padding:28px 36px;text-align:center}
+/* factory */
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:10px;margin:12px 0}
+.kpi{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px}
+.kpi .v{font-size:22px;font-weight:800}
+.kpi .l{color:var(--mute);font-size:12px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px}
+.panel h2{font-size:15px;margin:0 0 8px}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{padding:4px 8px;text-align:left;border-bottom:1px solid var(--line)}
+th{color:var(--mute);font-weight:500}
+.bar{height:8px;border-radius:4px;background:var(--panel2);position:relative;width:140px}
+.bar i{position:absolute;top:0;bottom:0;border-radius:4px}
+.bar b{position:absolute;left:50%;top:-2px;bottom:-2px;width:1px;background:var(--mute)}
+.it{border-bottom:1px solid var(--line);padding:6px 0}
+.it summary{cursor:pointer}
+.it .dis{color:var(--acc)}
+.nerf{color:var(--bad)}.buff{color:var(--good)}
+.mute{color:var(--mute)}
+svg text{fill:var(--mute);font-size:10px}
+@media(max-width:600px){main{padding:10px}.card{width:98px}}
+</style>
+</head>
+<body>
+<header>
+  <h1>ReForge<small>AIが100回作り直したカードゲーム</small></h1>
+  <nav class="row"><button id="tabPlay" class="on">対戦</button><button id="tabLab">工場の記録</button></nav>
+</header>
+<main>
+<section id="play">
+  <div class="row">
+    <label>作り直し <input type="range" id="ver" min="0" max="100" value="100" style="vertical-align:middle;width:160px"> <b id="verLabel">第100周（調整後）</b></label>
+    <label>席 <select id="seat"><option value="0">先手</option><option value="1">後手</option></select></label>
+    <button class="btn prim" id="newGame">新しい対戦</button>
+    <button class="btn" id="endTurn">ターン終了</button>
+    <span class="mute" id="hint"></span>
+  </div>
+  <div class="table">
+    <div class="hero" id="foeHero"></div>
+    <div class="lane" id="foeBoard"></div>
+    <div class="lane" id="myBoard"></div>
+    <div class="hero" id="myHero"></div>
+    <div class="hand" id="hand"></div>
+    <div id="log"></div>
+  </div>
+  <p class="mute">遊び方: 手札のカードを出す(エネルギー消費)。光る味方を選び、敵ユニットか相手の体力を攻撃。「守護」持ちが居る間は守護しか殴れない。体力0で負け。山札切れは疲労ダメージ。</p>
+</section>
+
+<section id="lab" class="hide"></section>
+</main>
+<div id="overlay" class="over hide"></div>
+<script src="data.js"></script>
+<script type="module">
+import { newGame, apply, legalActions, rng, describe, KW_JA, MAX_BOARD } from '../engine.mjs';
+import { buildDeck } from '../sim.mjs';
+import { policyBot } from '../bots.mjs';
+
+const D = window.REFORGE;
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s).replace(/[&<>]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[c]));
+
+/* ---------- tabs ---------- */
+$('tabPlay').onclick = () => tab('play');
+$('tabLab').onclick = () => tab('lab');
+function tab(t) {
+  $('play').classList.toggle('hide', t !== 'play');
+  $('lab').classList.toggle('hide', t !== 'lab');
+  $('tabPlay').classList.toggle('on', t === 'play');
+  $('tabLab').classList.toggle('on', t === 'lab');
+}
+
+/* ---------- game ---------- */
+let g, H, cards, rules, bot, R, sel = null, busy = false, token = 0;
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+// 第k周版 = 初版に1..k周の変更を順に当てたもの(0なら初版)
+function version(k) {
+  let cs = D.initial.cards.map((c) => c);
+  for (let i = 0; i < k; i++) for (const ch of D.history[i].changes) cs = cs.map((c) => (c.id === ch.id ? ch.card : c));
+  if (k === 0) return { cards: cs, rules: D.initial.rules, champion: D.history[0].champion };
+  const h = D.history[k - 1];
+  return { cards: cs, rules: h.rules, champion: h.champion };
+}
+$('ver').oninput = () => {
+  const k = Number($('ver').value);
+  $('verLabel').textContent = k === 0 ? '初版（壊れている）' : k === 100 ? '第100周（調整後）' : `第${k}周`;
+};
+$('ver').onchange = () => start();
+
+function start() {
+  token++;
+  const v = version(Number($('ver').value));
+  cards = v.cards;
+  rules = v.rules;
+  H = Number($('seat').value);
+  R = rng((Math.random() * 4e9) >>> 0);
+  bot = policyBot(v.champion);
+  const decks = [buildDeck(cards, rules, R, 0), buildDeck(cards, rules, R, 0)];
+  g = newGame(cards, decks, rules, (Math.random() * 4e9) >>> 0);
+  sel = null;
+  $('log').innerHTML = '';
+  $('overlay').classList.add('hide');
+  say(`対戦開始。あなたは${H === 0 ? '先手' : '後手（体力+' + rules.p2Hp + '）'}。`, true);
+  render();
+  aiLoop();
+}
+
+function say(t, me) {
+  const d = document.createElement('div');
+  if (me) d.className = 'me';
+  d.textContent = t;
+  $('log').appendChild(d);
+  $('log').scrollTop = 1e9;
+}
+
+function actText(a) {
+  const who = g.active === H ? 'あなた' : 'AI';
+  const me = g.players[g.active], foe = g.players[1 - g.active];
+  const nm = (u) => g.cards.get(u.id).name;
+  if (a.a === 'end') return `${who}: ターン終了`;
+  if (a.a === 'play') {
+    const c = g.cards.get(me.hand[a.h]);
+    const t = a.t === undefined ? '' : a.t === 'face' ? ' → 顔' : typeof a.t === 'number' ? ` → ${nm(foe.board[a.t])}` : ` → ${nm(me.board[a.t.own])}`;
+    return `${who}: 「${c.name}」を使用${t}`;
+  }
+  return `${who}: ${nm(me.board[a.u])} で ${a.t === 'face' ? '顔' : nm(foe.board[a.t])} を攻撃`;
+}
+
+function doAct(a) {
+  say(actText(a), g.active === H);
+  apply(g, a);
+  sel = null;
+}
+
+async function aiLoop() {
+  const my = token;
+  if (busy) return;
+  busy = true;
+  let guard = 0;
+  while (my === token && g.winner < 0 && g.active !== H && guard++ < 200) {
+    render();
+    await sleep(420);
+    if (my !== token) break;
+    doAct(bot(g, R));
+  }
+  busy = false;
+  if (my === token) render();
+}
+
+function unitEl(u, cls, click) {
+  const c = g.cards.get(u.id);
+  const el = document.createElement('div');
+  el.className = 'card unit ' + cls;
+  el.innerHTML = `<div class="nm">${esc(c.name)}</div><div class="ds">${c.kw.map((k) => `<span class="tag">${KW_JA[k]}</span>`).join('')}</div><div class="st"><i>${u.atk}</i>/<em>${u.hp}</em></div>`;
+  if (click) el.onclick = click;
+  return el;
+}
+
+function handEl(id, h, playable) {
+  const c = g.cards.get(id);
+  const el = document.createElement('div');
+  el.className = `card ${c.type} ${playable ? 'playable' : ''} ${sel && sel.h === h ? 'sel' : ''}`;
+  el.innerHTML = `<div class="co">${c.cost}</div><div class="nm">${esc(c.name)}</div><div class="ds">${esc(describe(c))}</div>`;
+  if (playable) el.onclick = () => clickHand(h);
+  return el;
+}
+
+function legalSet() {
+  return g.active === H && g.winner < 0 && !busy ? legalActions(g) : [];
+}
+
+function clickHand(h) {
+  const acts = legalSet().filter((a) => a.a === 'play' && a.h === h);
+  if (!acts.length) return;
+  if (acts.length === 1) return step(acts[0]);
+  sel = sel && sel.h === h ? null : { h };
+  render();
+}
+function clickMine(i) {
+  if (sel && sel.h !== undefined) {
+    const a = legalSet().find((x) => x.a === 'play' && x.h === sel.h && x.t && x.t.own === i);
+    if (a) return step(a);
+  }
+  const ok = legalSet().some((a) => a.a === 'atk' && a.u === i);
+  sel = ok ? (sel && sel.u === i ? null : { u: i }) : null;
+  render();
+}
+function clickFoe(j) {
+  const want = sel && sel.h !== undefined ? { a: 'play', h: sel.h, t: j } : sel && sel.u !== undefined ? { a: 'atk', u: sel.u, t: j } : null;
+  const a = want && legalSet().find((x) => same(x, want));
+  if (a) step(a);
+}
+function clickFoeHero() {
+  const want = sel && sel.h !== undefined ? { a: 'play', h: sel.h, t: 'face' } : sel && sel.u !== undefined ? { a: 'atk', u: sel.u, t: 'face' } : null;
+  const a = want && legalSet().find((x) => same(x, want));
+  if (a) step(a);
+}
+function step(a) {
+  doAct(a);
+  render();
+  if (g.active !== H) aiLoop();
+}
+$('endTurn').onclick = () => {
+  if (g.active === H && g.winner < 0 && !busy) step({ a: 'end' });
+};
+$('newGame').onclick = start;
+
+function heroEl(el, p, isFoe, label) {
+  const valid = isFoe && sel && legalSet().some((a) => a.t === 'face' && ((sel.h !== undefined && a.a === 'play' && a.h === sel.h) || (sel.u !== undefined && a.a === 'atk' && a.u === sel.u)));
+  el.className = 'hero' + (valid ? ' target' : '');
+  el.innerHTML = `<span>${label}　山札 ${p.deck.length} / 手札 ${p.hand.length}</span><span><b class="hp">♥ ${p.hp}</b>　<b class="en">⚡ ${p.energy}/${p.maxEnergy}</b></span>`;
+  el.onclick = isFoe ? clickFoeHero : null;
+}
+
+function render() {
+  const me = g.players[H], foe = g.players[1 - H];
+  heroEl($('foeHero'), foe, true, 'AI（王者の戦術）');
+  heroEl($('myHero'), me, false, 'あなた' + (g.active === H ? '（あなたの番）' : ''));
+  const acts = legalSet();
+  const fb = $('foeBoard'), mb = $('myBoard'), hd = $('hand');
+  fb.innerHTML = mb.innerHTML = hd.innerHTML = '';
+  foe.board.forEach((u, j) => {
+    const tgt = sel && acts.some((a) => a.t === j && ((sel.h !== undefined && a.a === 'play' && a.h === sel.h) || (sel.u !== undefined && a.a === 'atk' && a.u === sel.u)));
+    fb.appendChild(unitEl(u, tgt ? 'target' : '', () => clickFoe(j)));
+  });
+  me.board.forEach((u, i) => {
+    const buffTgt = sel && sel.h !== undefined && acts.some((a) => a.a === 'play' && a.h === sel.h && a.t && a.t.own === i);
+    const ready = acts.some((a) => a.a === 'atk' && a.u === i);
+    mb.appendChild(unitEl(u, (buffTgt ? 'target' : ready ? 'ready' : '') + (sel && sel.u === i ? ' sel' : ''), () => clickMine(i)));
+  });
+  me.hand.forEach((id, h) => hd.appendChild(handEl(id, h, acts.some((a) => a.a === 'play' && a.h === h))));
+  $('endTurn').disabled = !(g.active === H && g.winner < 0 && !busy);
+  $('hint').textContent = g.winner >= 0 ? '' : g.active === H ? (sel ? '対象を選んでください' : 'カードを出す／光る味方で攻撃') : 'AIの番…';
+  if (g.winner >= 0) {
+    const won = g.winner === H;
+    $('overlay').innerHTML = `<div><h2>${won ? '勝利！' : '敗北…'}</h2><p class="mute">${g.turn}手番で決着</p><button class="btn prim" id="again">もう一度</button></div>`;
+    $('overlay').classList.remove('hide');
+    $('again').onclick = start;
+  }
+}
+
+/* ---------- lab ---------- */
+function lab() {
+  const H0 = D.history, last = H0[H0.length - 1];
+  const dev = (st) => Math.max(...Object.values(st).map((w) => Math.abs(w - 0.5)));
+  const pct = (x, d = 1) => (x * 100).toFixed(d) + '%';
+  const nameOf = (id) => (D.final.cards.find((c) => c.id === id) || {}).name;
+  const changes = H0.reduce((n, h) => n + h.changes.length, 0);
+  const adopt = H0.reduce((n, h) => n + h.discoveries.filter((d) => d.startsWith('新戦術')).length, 0);
+  const W = 900, Hh = 190, pad = 30;
+  const xs = (i) => pad + (i / (H0.length - 1)) * (W - pad * 2);
+  const maxY = Math.max(0.12, ...H0.map((h) => h.metrics.maxDev));
+  const ys = (v) => Hh - pad - (v / maxY) * (Hh - pad * 2);
+  const line = (key, col) => `<polyline fill="none" stroke="${col}" stroke-width="2" points="${H0.map((h, i) => xs(i) + ',' + ys(Math.abs(key(h)))).join(' ')}"/>`;
+  const grid = [0, 0.05, 0.1].filter((v) => v <= maxY).map((v) => `<line x1="${pad}" x2="${W - pad}" y1="${ys(v)}" y2="${ys(v)}" stroke="#2f3547"/><text x="2" y="${ys(v) + 3}">${(v * 100).toFixed(0)}%</text>`).join('');
+  const rows = D.final.cards.slice().sort((a, b) => D.final.stats[b.id] - D.final.stats[a.id]);
+  const bar = (w, col) => `<div class="bar"><b></b><i style="background:${col};${w >= 0.5 ? `left:50%;width:${Math.min(50, (w - 0.5) * 500)}%` : `right:50%;width:${Math.min(50, (0.5 - w) * 500)}%`}"></i></div>`;
+  const matrixHist = H0.filter((h) => h.matrix);
+  const m0 = matrixHist[0].matrix, m1 = matrixHist[matrixHist.length - 1].matrix;
+  const mt = (m) => {
+    const ks = Object.keys(m);
+    return `<table><tr><th></th>${ks.map((k) => `<th>${k}</th>`).join('')}</tr>${ks.map((a) => `<tr><th>${a}</th>${ks.map((b) => `<td style="color:${m[a][b] > 0.55 ? 'var(--good)' : m[a][b] < 0.45 ? 'var(--bad)' : 'inherit'}">${a === b ? '—' : pct(m[a][b], 0)}</td>`).join('')}</tr>`).join('')}</table>`;
+  };
+  $('lab').innerHTML = `
+  <div class="kpis">
+    <div class="kpi"><div class="l">最強/最弱カードの偏差（50%からのズレ）</div><div class="v">${pct(dev(D.initial.stats))} → ${pct(dev(D.final.stats))}</div></div>
+    <div class="kpi"><div class="l">先手勝率</div><div class="v">${pct(D.initial.firstWin)} → ${pct(D.final.firstWin)}</div></div>
+    <div class="kpi"><div class="l">自動調整したカード変更</div><div class="v">${changes}回 / ${D.iterations}周</div></div>
+    <div class="kpi"><div class="l">王者の戦術が塗り替わった回数</div><div class="v">${adopt}回</div></div>
+  </div>
+  <div class="panel"><h2>反復ごとの偏り（下がるほどバランス良好）</h2>
+    <svg viewBox="0 0 ${W} ${Hh}" width="100%">${grid}${line((h) => h.metrics.maxDev, '#ffb454')}${line((h) => h.metrics.meanAbsDev, '#6ab0ff')}${line((h) => h.metrics.firstWin - 0.5, '#6fd3a0')}
+    <text x="${pad}" y="12" style="fill:#ffb454">● 最大偏差</text><text x="${pad + 80}" y="12" style="fill:#6ab0ff">● 平均偏差</text><text x="${pad + 160}" y="12" style="fill:#6fd3a0">● 先手有利度</text>
+    <text x="${pad}" y="${Hh - 6}">1</text><text x="${W - pad - 12}" y="${Hh - 6}">${H0.length}</text></svg>
+    <div class="mute">最終ルール: 後手の体力 +${D.final.rules.p2Hp} / 後手の初期手札 ${D.final.rules.p2StartHand}枚 / 平均 ${D.final.avgTurns.toFixed(1)} ターンで決着</div>
+  </div>
+  <div class="panel"><h2>戦術の相性（先手後手を入れ替えた自己対戦・行の勝率）</h2>
+    <div class="row" style="align-items:flex-start"><div><div class="mute">反復 ${matrixHist[0].i}</div>${mt(m0)}</div><div><div class="mute">反復 ${matrixHist[matrixHist.length - 1].i}</div>${mt(m1)}</div></div>
+    <div class="mute">champion はこの工場が進化させた王者の戦術。</div>
+  </div>
+  <div class="panel"><h2>カード別の勝率（そのカードが入ったデッキの勝率。初版→調整後）</h2>
+    <table><tr><th>カード</th><th>調整後</th><th></th><th>初版</th><th>変化</th></tr>${rows.map((c) => {
+      const i = D.initial.cards.find((x) => x.id === c.id);
+      const same = JSON.stringify(i) === JSON.stringify(c);
+      return `<tr><td>${esc(c.name)} <span class="mute">${c.cost}コスト ${esc(describe(c))}</span></td><td>${pct(D.final.stats[c.id])}</td><td>${bar(D.final.stats[c.id], 'var(--good)')}</td><td class="mute">${pct(D.initial.stats[c.id])} ${esc(i.cost)}コスト ${esc(describe(i))}</td><td>${same ? '<span class="mute">変更なし</span>' : '改'}</td></tr>`;
+    }).join('')}</table>
+  </div>
+  <div class="panel"><h2>100回の作り直しログ</h2>
+    ${H0.map((h) => `<details class="it"><summary>#${h.i}　偏差 ${pct(h.metrics.maxDev)}　先手 ${pct(h.metrics.firstWin)}　変更 ${h.changes.length}${h.discoveries.length ? `　<span class="dis">★${esc(h.discoveries[0])}</span>` : ''}</summary>
+      ${h.discoveries.slice(1).map((d) => `<div class="dis">★ ${esc(d)}</div>`).join('')}
+      ${h.ruleChanges.map((r) => `<div>ルール: ${esc(r)}</div>`).join('')}
+      ${h.changes.map((c) => `<div class="${c.dir}">${c.dir === 'nerf' ? '▼' : '▲'} ${esc(c.before)} → ${esc(c.after)}　<span class="mute">(勝率${pct(c.wr)})</span></div>`).join('') || '<div class="mute">カード変更なし</div>'}
+    </details>`).join('')}
+  </div>`;
+}
+
+lab();
+start();
+</script>
+</body>
+</html>
